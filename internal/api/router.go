@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"go-ecommerce-json/internal/auth"
+	"go-ecommerce-json/internal/cache"
 	"go-ecommerce-json/internal/config"
 	"go-ecommerce-json/internal/mail"
 	"go-ecommerce-json/internal/repository"
+	"go-ecommerce-json/internal/search"
 	"go-ecommerce-json/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -20,15 +22,19 @@ const (
 )
 
 type Router struct {
-	Config   config.Config
-	Store    *repository.Store
-	Users    *service.UserService
-	Catalog  *service.CatalogService
-	Cart     *service.CartService
-	Orders   *service.OrderService
-	Promo    *service.PromoService
-	Tags     *service.TagService
-	Password *service.PasswordResetService
+	Config    config.Config
+	Store     *repository.Store
+	Users     *service.UserService
+	Catalog   *service.CatalogService
+	Cart      *service.CartService
+	Orders    *service.OrderService
+	Promo     *service.PromoService
+	Tags      *service.TagService
+	Password  *service.PasswordResetService
+	Marketing *service.MarketingService
+	RMA       *service.RMAService
+	Lists     *service.UserListsService
+	Search    *search.Client
 
 	defaultLim *ipLimiter
 	loginLim   *ipLimiter
@@ -48,20 +54,35 @@ func NewRouter(cfg config.Config) *Router {
 		JWTSecret: []byte(cfg.JWTSecret),
 		JWTTTL:    7 * 24 * time.Hour,
 	}
-	cs := &service.CatalogService{Store: st}
+
+	var catCache cache.CatalogCache = cache.NoOp()
+	if cfg.RedisAddr != "" {
+		if rdb, err := cache.NewRedis(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB); err == nil {
+			catCache = cache.NewRedisCatalogCache(rdb)
+		}
+	} else if cfg.CatalogCacheMem {
+		catCache = cache.NewMemoryCatalogCache()
+	}
+
+	cs := &service.CatalogService{
+		Store:    st,
+		Cache:    catCache,
+		CacheTTL: 30 * time.Second,
+	}
 	cart := &service.CartService{Store: st}
 	orders := &service.OrderService{
-		Store:             st,
-		Cart:              cart,
-		Shipping:          cfg.Shipping,
-		FreeShipAt:        cfg.FreeShipAt,
-		Mail:              m,
-		StripeSecret:      cfg.StripeSecretKey,
-		StripeCurrency:    cfg.StripeCurrency,
-		DevPaymentStub:    cfg.DevPaymentStub,
-		AppPublicURL:      cfg.AppPublicURL,
-		LowStockThreshold: cfg.LowStockThreshold,
-		AdminAlertEmail:   cfg.AdminAlertEmail,
+		Store:               st,
+		Cart:                cart,
+		Shipping:            cfg.Shipping,
+		FreeShipAt:          cfg.FreeShipAt,
+		DefaultItemWeightKg: cfg.DefaultItemWeightKg,
+		Mail:                m,
+		StripeSecret:        cfg.StripeSecretKey,
+		StripeCurrency:      cfg.StripeCurrency,
+		DevPaymentStub:      cfg.DevPaymentStub,
+		AppPublicURL:        cfg.AppPublicURL,
+		LowStockThreshold:   cfg.LowStockThreshold,
+		AdminAlertEmail:     cfg.AdminAlertEmail,
 	}
 	promo := &service.PromoService{Store: st}
 	tags := &service.TagService{Store: st}
@@ -70,6 +91,21 @@ func NewRouter(cfg config.Config) *Router {
 		Mail:     m,
 		AppURL:   cfg.AppPublicURL,
 		TokenTTL: time.Hour,
+	}
+	mrk := &service.MarketingService{
+		Store:    st,
+		Mail:     m,
+		AppURL:   cfg.AppPublicURL,
+		MinIdle:  time.Duration(cfg.AbandonedCartMinHours) * time.Hour,
+		Cooldown: time.Duration(cfg.AbandonedCartCooldownHours) * time.Hour,
+	}
+	rma := &service.RMAService{Store: st}
+	lists := &service.UserListsService{Store: st}
+	srch := &search.Client{
+		Store:         st,
+		AlgoliaAppID:  cfg.AlgoliaAppID,
+		AlgoliaAPIKey: cfg.AlgoliaAPIKey,
+		AlgoliaIndex:  cfg.AlgoliaIndex,
 	}
 	return &Router{
 		Config:     cfg,
@@ -81,6 +117,10 @@ func NewRouter(cfg config.Config) *Router {
 		Promo:      promo,
 		Tags:       tags,
 		Password:   pw,
+		Marketing:  mrk,
+		RMA:        rma,
+		Lists:      lists,
+		Search:     srch,
 		defaultLim: newIPLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst),
 		loginLim:   newIPLimiter(cfg.LoginRateLimitRPS, cfg.LoginBurst),
 	}
@@ -102,28 +142,48 @@ func (r *Router) Mount(engine *gin.Engine) {
 	engine.GET("/categories", r.getCategories)
 	engine.GET("/categories/:id", r.getCategory)
 	engine.GET("/tags", r.getTags)
+	engine.GET("/search", r.getSearch)
+
+	engine.POST("/internal/cron/abandoned-carts", r.loginLim.middleware(), r.postAbandonedCartCron)
 
 	authz := engine.Group("/")
 	authz.Use(r.authMiddleware())
 	authz.GET("/me", r.getMe)
+	authz.GET("/me/insights", r.getMeInsights)
 
 	authz.GET("/me/addresses", r.getAddresses)
 	authz.POST("/me/addresses", r.postAddress)
 	authz.PUT("/me/addresses/:id", r.putAddress)
 	authz.DELETE("/me/addresses/:id", r.deleteAddress)
 
+	authz.POST("/shipping/quote", r.postShippingQuote)
+
+	authz.GET("/wishlist", r.getWishlist)
+	authz.POST("/wishlist/items", r.postWishlistItem)
+	authz.DELETE("/wishlist/items", r.deleteWishlistItem)
+	authz.POST("/wishlist/move-to-save-later", r.postWishlistMoveSave)
+
+	authz.GET("/save-later", r.getSaveLater)
+	authz.POST("/save-later/items", r.postSaveLaterItem)
+	authz.DELETE("/save-later/items", r.deleteSaveLaterItem)
+	authz.POST("/save-later/move-to-wishlist", r.postSaveLaterMoveWish)
+
 	authz.GET("/cart", r.getCart)
 	authz.POST("/cart/items", r.postCartItem)
 	authz.PATCH("/cart/items/:itemId", r.patchCartItem)
 	authz.DELETE("/cart/items/:itemId", r.deleteCartItem)
 
+	authz.POST("/rmas", r.postRMA)
+	authz.GET("/rmas", r.getRMAs)
+	authz.GET("/rmas/:id", r.getRMA)
+
 	authz.POST("/orders/checkout", r.postCheckout)
 	authz.GET("/orders", r.getOrders)
-	authz.GET("/orders/:id", r.getOrder)
 	authz.GET("/orders/:id/invoice.pdf", r.getOrderInvoicePDF)
 	authz.POST("/orders/:id/cancel", r.postCancelOrder)
 	authz.POST("/orders/:id/stripe-payment-intent", r.postStripePaymentIntent)
 	authz.POST("/orders/:id/pay", r.postPayOrder)
+	authz.GET("/orders/:id", r.getOrder)
 
 	admin := engine.Group("/admin")
 	admin.Use(r.authMiddleware(), r.adminMiddleware())
@@ -149,6 +209,15 @@ func (r *Router) Mount(engine *gin.Engine) {
 	admin.POST("/orders/:id/ship", r.adminShipOrder)
 
 	admin.GET("/inventory/low-stock", r.adminLowStock)
+
+	admin.GET("/rmas", r.adminListRMAs)
+	admin.GET("/rmas/:id", r.adminGetRMA)
+	admin.POST("/rmas/:id/approve", r.adminApproveRMA)
+	admin.POST("/rmas/:id/reject", r.adminRejectRMA)
+	admin.POST("/rmas/:id/receive", r.adminReceiveRMA)
+	admin.POST("/rmas/:id/refund", r.adminRefundRMA)
+
+	admin.POST("/search/reindex", r.adminSearchReindex)
 }
 
 func (r *Router) authMiddleware() gin.HandlerFunc {

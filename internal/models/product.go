@@ -5,8 +5,9 @@ type ProductVariant struct {
 	SKU   string  `json:"sku"`
 	Size  string  `json:"size"`
 	Color string  `json:"color"`
-	Price float64 `json:"price"`
-	Stock int     `json:"stock"`
+	Price    float64 `json:"price"`
+	Stock    int     `json:"stock"`
+	WeightKg float64 `json:"weightKg,omitempty"` // optional; used for carrier rate estimates
 }
 
 type Product struct {

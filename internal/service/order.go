@@ -10,6 +10,7 @@ import (
 	"go-ecommerce-json/internal/models"
 	"go-ecommerce-json/internal/payment"
 	"go-ecommerce-json/internal/repository"
+	"go-ecommerce-json/internal/shipping"
 
 	"github.com/google/uuid"
 )
@@ -19,6 +20,7 @@ type OrderService struct {
 	Cart                *CartService
 	Shipping            float64
 	FreeShipAt          float64
+	DefaultItemWeightKg float64
 	Mail                *mail.Sender
 	StripeSecret        string
 	StripeCurrency      string
@@ -31,6 +33,8 @@ type OrderService struct {
 type CheckoutInput struct {
 	ShippingAddress models.Address `json:"shippingAddress"`
 	DiscountCode    string         `json:"discountCode"`
+	// ShippingCarrier: empty or "flat" uses flat rate + free-ship threshold; otherwise fedex_ground | ups_ground | dhl_express (stub quotes).
+	ShippingCarrier string `json:"shippingCarrier"`
 }
 
 type PayInput struct {
@@ -54,6 +58,7 @@ func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order,
 
 	var items []models.OrderItem
 	var subtotal float64
+	var totalWeight float64
 	for _, line := range cart.Items {
 		p, err := o.Store.FindProductByID(line.ProductID)
 		if err != nil {
@@ -85,6 +90,14 @@ func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order,
 			Quantity:  line.Quantity,
 		})
 		subtotal += price * float64(line.Quantity)
+		w := v.WeightKg
+		if w <= 0 {
+			w = o.DefaultItemWeightKg
+			if w <= 0 {
+				w = 0.5
+			}
+		}
+		totalWeight += w * float64(line.Quantity)
 	}
 
 	now := time.Now().UTC()
@@ -98,7 +111,7 @@ func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order,
 		if d == nil {
 			return nil, ErrNotFound
 		}
-		da, err := ApplyDiscount(d, subtotal, now)
+		da, err := ComputeDiscountAmount(o.Store, d, subtotal, items, now)
 		if err != nil {
 			return nil, err
 		}
@@ -109,11 +122,25 @@ func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order,
 	if afterDiscount < 0 {
 		afterDiscount = 0
 	}
-	shipping := o.Shipping
-	if subtotal >= o.FreeShipAt {
-		shipping = 0
+	shipLabel := "flat"
+	shippingAmt := o.Shipping
+	carrierIn := strings.TrimSpace(strings.ToLower(in.ShippingCarrier))
+	if carrierIn == "" || carrierIn == "flat" {
+		if subtotal >= o.FreeShipAt {
+			shippingAmt = 0
+		}
+	} else {
+		q, ok := shipping.FindQuote(in.ShippingCarrier, in.ShippingAddress.Country, totalWeight)
+		if !ok {
+			return nil, ErrValidation
+		}
+		shippingAmt = q.Amount
+		shipLabel = q.Code
+		if subtotal >= o.FreeShipAt {
+			shippingAmt = 0
+		}
 	}
-	total := afterDiscount + shipping
+	total := afterDiscount + shippingAmt
 
 	ts := now.Format(time.RFC3339)
 	order := models.Order{
@@ -123,7 +150,8 @@ func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order,
 		ShippingAddress: in.ShippingAddress,
 		Subtotal:        subtotal,
 		Discount:        discountAmt,
-		Shipping:        shipping,
+		Shipping:        shippingAmt,
+		ShippingCarrier: shipLabel,
 		Total:           total,
 		Status:          "created",
 		PaymentStatus:   "pending",
@@ -401,4 +429,41 @@ func (o *OrderService) CreateStripePaymentIntent(userID, orderID string) (client
 		cur = "usd"
 	}
 	return payment.CreatePaymentIntent(o.StripeSecret, ord.Total, cur, ord.ID)
+}
+
+// QuoteShippingRates returns stub multi-carrier rates based on cart weight (FedEx/UPS/DHL style options).
+func (o *OrderService) QuoteShippingRates(userID string, dest models.Address) ([]shipping.RateQuote, error) {
+	cart, err := o.Cart.GetCart(userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(cart.Items) == 0 {
+		return nil, ErrValidation
+	}
+	var totalWeight float64
+	for _, line := range cart.Items {
+		p, err := o.Store.FindProductByID(line.ProductID)
+		if err != nil || p == nil {
+			return nil, ErrValidation
+		}
+		var v *models.ProductVariant
+		for i := range p.Variants {
+			if p.Variants[i].ID == line.VariantID {
+				v = &p.Variants[i]
+				break
+			}
+		}
+		if v == nil {
+			return nil, ErrValidation
+		}
+		w := v.WeightKg
+		if w <= 0 {
+			w = o.DefaultItemWeightKg
+			if w <= 0 {
+				w = 0.5
+			}
+		}
+		totalWeight += w * float64(line.Quantity)
+	}
+	return shipping.QuoteCarriers(dest.Country, totalWeight), nil
 }

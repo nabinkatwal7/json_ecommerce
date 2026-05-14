@@ -12,9 +12,10 @@ type CartItem struct {
 }
 
 type Cart struct {
-	ID        string     `json:"id"`
-	UserID    string     `json:"userId"`
-	Items     []CartItem `json:"items"`
-	CreatedAt string     `json:"createdAt"`
-	UpdatedAt string     `json:"updatedAt"`
+	ID                   string     `json:"id"`
+	UserID               string     `json:"userId"`
+	Items                []CartItem `json:"items"`
+	CreatedAt            string     `json:"createdAt"`
+	UpdatedAt            string     `json:"updatedAt"`
+	LastAbandonedEmailAt string     `json:"lastAbandonedEmailAt,omitempty"`
 }

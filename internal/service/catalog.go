@@ -1,9 +1,11 @@
 package service
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
+	"go-ecommerce-json/internal/cache"
 	"go-ecommerce-json/internal/models"
 	"go-ecommerce-json/internal/repository"
 
@@ -11,10 +13,35 @@ import (
 )
 
 type CatalogService struct {
-	Store *repository.Store
+	Store    *repository.Store
+	Cache    cache.CatalogCache
+	CacheTTL time.Duration
+}
+
+func (c *CatalogService) cacheKeyProducts(categoryID string) string {
+	return fmt.Sprintf("catalog:products:active:%s", categoryID)
+}
+
+func (c *CatalogService) catalogTTL() time.Duration {
+	if c.CacheTTL > 0 {
+		return c.CacheTTL
+	}
+	return 30 * time.Second
+}
+
+func (c *CatalogService) bustCatalogCache() {
+	if c.Cache != nil {
+		c.Cache.InvalidateCatalog()
+	}
 }
 
 func (c *CatalogService) ListActiveProducts(categoryID string) ([]models.Product, error) {
+	if c.Cache != nil {
+		var cached []models.Product
+		if c.Cache.GetJSON(c.cacheKeyProducts(categoryID), &cached) {
+			return cached, nil
+		}
+	}
 	all, err := c.Store.ListProducts()
 	if err != nil {
 		return nil, err
@@ -28,6 +55,9 @@ func (c *CatalogService) ListActiveProducts(categoryID string) ([]models.Product
 			continue
 		}
 		out = append(out, p)
+	}
+	if c.Cache != nil {
+		c.Cache.SetJSON(c.cacheKeyProducts(categoryID), out, c.catalogTTL())
 	}
 	return out, nil
 }
@@ -135,6 +165,7 @@ func (c *CatalogService) AdminCreateProduct(in ProductInput) (*models.Product, e
 	if err := c.Store.UpsertProduct(p); err != nil {
 		return nil, err
 	}
+	c.bustCatalogCache()
 	return &p, nil
 }
 
@@ -185,6 +216,7 @@ func (c *CatalogService) AdminUpdateProduct(id string, in ProductInput) (*models
 	if err := c.Store.UpsertProduct(*p); err != nil {
 		return nil, err
 	}
+	c.bustCatalogCache()
 	return p, nil
 }
 
@@ -192,7 +224,11 @@ func (c *CatalogService) AdminDeleteProduct(id string) error {
 	if p, _ := c.Store.FindProductByID(id); p == nil {
 		return ErrNotFound
 	}
-	return c.Store.DeleteProduct(id)
+	if err := c.Store.DeleteProduct(id); err != nil {
+		return err
+	}
+	c.bustCatalogCache()
+	return nil
 }
 
 type CategoryInput struct {
@@ -228,6 +264,7 @@ func (c *CatalogService) AdminCreateCategory(in CategoryInput) (*models.Category
 	if err := c.Store.UpsertCategory(cat); err != nil {
 		return nil, err
 	}
+	c.bustCatalogCache()
 	return &cat, nil
 }
 
@@ -262,6 +299,7 @@ func (c *CatalogService) AdminUpdateCategory(id string, in CategoryInput) (*mode
 	if err := c.Store.UpsertCategory(*cat); err != nil {
 		return nil, err
 	}
+	c.bustCatalogCache()
 	return cat, nil
 }
 
@@ -269,7 +307,11 @@ func (c *CatalogService) AdminDeleteCategory(id string) error {
 	if cat, _ := c.Store.FindCategoryByID(id); cat == nil {
 		return ErrNotFound
 	}
-	return c.Store.DeleteCategory(id)
+	if err := c.Store.DeleteCategory(id); err != nil {
+		return err
+	}
+	c.bustCatalogCache()
+	return nil
 }
 
 func normalizeVariants(in []models.ProductVariant) ([]models.ProductVariant, error) {

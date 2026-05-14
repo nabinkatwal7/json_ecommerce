@@ -19,5 +19,6 @@ type User struct {
 	PasswordHash string    `json:"passwordHash"`
 	Role         string    `json:"role"` // admin, customer
 	Addresses    []Address `json:"addresses"`
+	Segments     []string  `json:"segments,omitempty"` // derived marketing segments (refreshed periodically)
 	CreatedAt    string    `json:"createdAt"`
 }

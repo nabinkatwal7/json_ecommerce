@@ -17,6 +17,7 @@ type Order struct {
 	Subtotal        float64     `json:"subtotal"`
 	Discount        float64     `json:"discount"`
 	Shipping        float64     `json:"shipping"`
+	ShippingCarrier string      `json:"shippingCarrier,omitempty"` // e.g. fedex_ground, ups_ground, dhl_express, flat
 	Total           float64     `json:"total"`
 	Status          string      `json:"status"`        // created, paid, fulfilled, shipped, cancelled
 	PaymentStatus   string      `json:"paymentStatus"` // pending, paid, failed, refunded

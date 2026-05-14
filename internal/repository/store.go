@@ -28,3 +28,6 @@ func (s *Store) tagsFile() string         { return s.path("tags.json") }
 func (s *Store) passwordResetsFile() string {
 	return s.path("password_resets.json")
 }
+func (s *Store) rmasFile() string            { return s.path("rmas.json") }
+func (s *Store) wishlistsFile() string       { return s.path("wishlists.json") }
+func (s *Store) saveLaterFile() string       { return s.path("save_later.json") }
