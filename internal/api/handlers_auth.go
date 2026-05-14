@@ -49,3 +49,22 @@ func (r *Router) getMe(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, u)
 }
+
+func (r *Router) patchMe(c *gin.Context) {
+	uid, ok := userID(c)
+	if !ok {
+		abortAPI(c, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	var body service.PatchProfileInput
+	if err := c.ShouldBindJSON(&body); err != nil {
+		abortAPI(c, http.StatusBadRequest, "invalid json")
+		return
+	}
+	u, err := r.Users.UpdateProfile(uid, body)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, u)
+}

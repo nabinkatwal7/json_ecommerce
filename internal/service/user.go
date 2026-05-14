@@ -107,3 +107,48 @@ func (s *UserService) GetProfile(userID string) (*models.User, error) {
 	u.PasswordHash = ""
 	return u, nil
 }
+
+type PatchProfileInput struct {
+	Name  *string `json:"name"`
+	Email *string `json:"email"`
+}
+
+// UpdateProfile updates the caller's display name and/or email (partial JSON).
+func (s *UserService) UpdateProfile(userID string, in PatchProfileInput) (*models.User, error) {
+	if in.Name == nil && in.Email == nil {
+		return nil, ErrValidation
+	}
+	u, err := s.Store.FindUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return nil, ErrNotFound
+	}
+	if in.Name != nil {
+		n := strings.TrimSpace(*in.Name)
+		if n == "" {
+			return nil, ErrValidation
+		}
+		u.Name = n
+	}
+	if in.Email != nil {
+		e := strings.TrimSpace(strings.ToLower(*in.Email))
+		if e == "" {
+			return nil, ErrValidation
+		}
+		other, err := s.Store.FindUserByEmail(e)
+		if err != nil {
+			return nil, err
+		}
+		if other != nil && other.ID != u.ID {
+			return nil, ErrConflict
+		}
+		u.Email = e
+	}
+	if err := s.Store.UpsertUser(*u); err != nil {
+		return nil, err
+	}
+	u.PasswordHash = ""
+	return u, nil
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "c1000000-0000-4000-8000-000000000001",
+    "name": "Match kits",
+    "slug": "match-kits",
+    "description": "Home, away, and third-style shirts — matchday weight fabrics and crest details.",
+    "isActive": true,
+    "createdAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "c1000000-0000-4000-8000-000000000002",
+    "name": "Training & street",
+    "slug": "training-street",
+    "description": "Travel jackets, pants, and layers for the terrace, gym, or city.",
+    "isActive": true,
+    "createdAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "c1000000-0000-4000-8000-000000000003",
+    "name": "Fan gifts & home",
+    "slug": "fan-gifts-home",
+    "description": "Mugs, scarves, and souvenirs for the culé in your life.",
+    "isActive": true,
+    "createdAt": "2026-01-01T00:00:00Z"
+  }
+]

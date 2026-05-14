@@ -8,7 +8,8 @@ import (
 
 func (r *Router) getProducts(c *gin.Context) {
 	categoryID := c.Query("categoryId")
-	list, err := r.Catalog.ListActiveProducts(categoryID)
+	tagID := c.Query("tagId")
+	list, err := r.Catalog.ListActiveProducts(categoryID, tagID)
 	if err != nil {
 		respondErr(c, err)
 		return

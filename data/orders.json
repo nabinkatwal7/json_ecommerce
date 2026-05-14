@@ -1,0 +1,188 @@
+[
+  {
+    "id": "o1000000-0000-4000-8000-000000000001",
+    "userId": "u1000000-0000-4000-8000-000000000001",
+    "items": [
+      {
+        "productId": "p1000000-0000-4000-8000-000000000001",
+        "variantId": "v1000000-0000-4000-8000-000000000012",
+        "name": "Home replica shirt",
+        "sku": "FCB-HOME-M",
+        "price": 24.99,
+        "quantity": 2
+      },
+      {
+        "productId": "p1000000-0000-4000-8000-000000000002",
+        "variantId": "v1000000-0000-4000-8000-000000000021",
+        "name": "Training travel jacket",
+        "sku": "FCB-TRAIN-M",
+        "price": 59.99,
+        "quantity": 1
+      }
+    ],
+    "shippingAddress": {
+      "id": "addr-0001-0000-4000-8000-000000000001",
+      "fullName": "Test Customer",
+      "phone": "+15551234567",
+      "country": "US",
+      "state": "CA",
+      "city": "San Francisco",
+      "postalCode": "94102",
+      "addressLine": "100 Market Street",
+      "isDefault": true
+    },
+    "subtotal": 109.97,
+    "discount": 0,
+    "shipping": 0,
+    "shippingCarrier": "flat",
+    "total": 109.97,
+    "status": "shipped",
+    "paymentStatus": "paid",
+    "invoiceNumber": "INV-20260510-o1000001",
+    "createdAt": "2026-05-08T14:00:00Z",
+    "updatedAt": "2026-05-09T16:00:00Z",
+    "paidAt": "2026-05-08T14:05:00Z",
+    "fulfilledAt": "2026-05-08T18:00:00Z",
+    "shippedAt": "2026-05-09T16:00:00Z"
+  },
+  {
+    "id": "o1000000-0000-4000-8000-000000000002",
+    "userId": "u1000000-0000-4000-8000-000000000001",
+    "items": [
+      {
+        "productId": "p1000000-0000-4000-8000-000000000003",
+        "variantId": "v1000000-0000-4000-8000-000000000031",
+        "name": "Blaugrana snapback cap",
+        "sku": "FCB-CAP-NAVY",
+        "price": 28,
+        "quantity": 1
+      }
+    ],
+    "shippingAddress": {
+      "id": "addr-0001-0000-4000-8000-000000000001",
+      "fullName": "Test Customer",
+      "phone": "+15551234567",
+      "country": "US",
+      "state": "CA",
+      "city": "San Francisco",
+      "postalCode": "94102",
+      "addressLine": "100 Market Street",
+      "isDefault": true
+    },
+    "subtotal": 28,
+    "discount": 0,
+    "shipping": 9.99,
+    "shippingCarrier": "flat",
+    "total": 37.99,
+    "status": "created",
+    "paymentStatus": "pending",
+    "createdAt": "2026-05-14T09:00:00Z",
+    "updatedAt": "2026-05-14T09:00:00Z"
+  },
+  {
+    "id": "o1000000-0000-4000-8000-000000000003",
+    "userId": "u1000000-0000-4000-8000-000000000001",
+    "items": [
+      {
+        "productId": "p1000000-0000-4000-8000-000000000005",
+        "variantId": "v1000000-0000-4000-8000-000000000051",
+        "name": "Matchday crew socks (3-pack)",
+        "sku": "FCB-SOCK-SM",
+        "price": 14,
+        "quantity": 4
+      }
+    ],
+    "shippingAddress": {
+      "id": "addr-0001-0000-4000-8000-000000000001",
+      "fullName": "Test Customer",
+      "phone": "+15551234567",
+      "country": "US",
+      "state": "CA",
+      "city": "San Francisco",
+      "postalCode": "94102",
+      "addressLine": "100 Market Street",
+      "isDefault": true
+    },
+    "subtotal": 56,
+    "discount": 5,
+    "shipping": 0,
+    "shippingCarrier": "flat",
+    "total": 51,
+    "status": "fulfilled",
+    "paymentStatus": "paid",
+    "createdAt": "2026-05-12T11:00:00Z",
+    "updatedAt": "2026-05-12T15:00:00Z",
+    "paidAt": "2026-05-12T11:02:00Z",
+    "fulfilledAt": "2026-05-12T15:00:00Z"
+  },
+  {
+    "id": "b39fda1e-6cbb-4e0f-af04-d038b5298a55",
+    "userId": "2aba8759-6195-4e08-b14f-3cd4f6070261",
+    "items": [
+      {
+        "productId": "p1000000-0000-4000-8000-000000000002",
+        "variantId": "v1000000-0000-4000-8000-000000000021",
+        "name": "Training travel jacket",
+        "sku": "FCB-TRAIN-M",
+        "price": 59.99,
+        "quantity": 1
+      }
+    ],
+    "shippingAddress": {
+      "id": "",
+      "fullName": "Nabin Katwal",
+      "phone": "9704267444",
+      "country": "US",
+      "state": "NC",
+      "city": "Kathmandu",
+      "postalCode": "44600",
+      "addressLine": "Jadibuti",
+      "isDefault": false
+    },
+    "subtotal": 59.99,
+    "discount": 0,
+    "shipping": 0,
+    "shippingCarrier": "flat",
+    "total": 59.99,
+    "status": "created",
+    "paymentStatus": "pending",
+    "invoiceNumber": "INV-20260514-b39fda1e",
+    "createdAt": "2026-05-14T10:47:52Z",
+    "updatedAt": "2026-05-14T10:47:58Z"
+  },
+  {
+    "id": "a004a060-c8d5-42b9-8f9f-3f3a01609da8",
+    "userId": "2aba8759-6195-4e08-b14f-3cd4f6070261",
+    "items": [
+      {
+        "productId": "p1000000-0000-4000-8000-000000000001",
+        "variantId": "v1000000-0000-4000-8000-000000000011",
+        "name": "Home replica shirt",
+        "sku": "FCB-HOME-S",
+        "price": 24.99,
+        "quantity": 1
+      }
+    ],
+    "shippingAddress": {
+      "id": "",
+      "fullName": "Nabin Katwal",
+      "phone": "9704267444",
+      "country": "US",
+      "state": "NC",
+      "city": "Kathmandu",
+      "postalCode": "44600",
+      "addressLine": "Jadibuti",
+      "isDefault": false
+    },
+    "subtotal": 24.99,
+    "discount": 0,
+    "shipping": 6.98,
+    "shippingCarrier": "ups_ground",
+    "total": 31.97,
+    "status": "created",
+    "paymentStatus": "pending",
+    "invoiceNumber": "INV-20260514-a004a060",
+    "createdAt": "2026-05-14T10:57:48Z",
+    "updatedAt": "2026-05-14T10:57:53Z"
+  }
+]

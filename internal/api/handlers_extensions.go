@@ -22,6 +22,17 @@ func (r *Router) getSearch(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"hits": hits})
 }
 
+func (r *Router) getSearchSuggest(c *gin.Context) {
+	q := c.Query("q")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	list, err := r.Discovery.SearchSuggestions(q, limit)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"suggestions": list})
+}
+
 func (r *Router) postAbandonedCartCron(c *gin.Context) {
 	if r.Config.CronSecret == "" || c.GetHeader("X-Cron-Secret") != r.Config.CronSecret {
 		abortAPI(c, http.StatusForbidden, "forbidden")

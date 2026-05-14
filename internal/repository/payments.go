@@ -13,6 +13,20 @@ func (s *Store) SavePayments(payments []models.Payment) error {
 	return database.WriteJSON(s.paymentsFile(), payments)
 }
 
+func (s *Store) ListPaymentsByOrderID(orderID string) ([]models.Payment, error) {
+	all, err := s.ListPayments()
+	if err != nil {
+		return nil, err
+	}
+	var out []models.Payment
+	for i := range all {
+		if all[i].OrderID == orderID {
+			out = append(out, all[i])
+		}
+	}
+	return out, nil
+}
+
 func (s *Store) UpsertPayment(p models.Payment) error {
 	payments, err := s.ListPayments()
 	if err != nil {

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "b1000000-0000-4000-8000-000000000001",
+    "slot": "announcement",
+    "title": "Free shipping over $50",
+    "body": "Flat-rate shipping is waived when your cart subtotal reaches $50. Kits and jackets ship in 2–3 business days.",
+    "imageUrl": "",
+    "linkUrl": "/products",
+    "sortOrder": 0,
+    "isActive": true,
+    "startsAt": "",
+    "endsAt": "",
+    "createdAt": "2026-05-01T00:00:00Z",
+    "updatedAt": "2026-05-01T00:00:00Z"
+  },
+  {
+    "id": "b1000000-0000-4000-8000-000000000002",
+    "slot": "home_carousel",
+    "title": "Matchday arrivals",
+    "body": "Fresh home shirts, travel jackets, and scarves for the new season.",
+    "imageUrl": "https://placehold.co/1200x400/A50044/ffffff/png?text=Matchday+arrivals",
+    "linkUrl": "/products",
+    "sortOrder": 0,
+    "isActive": true,
+    "startsAt": "",
+    "endsAt": "",
+    "createdAt": "2026-05-01T00:00:00Z",
+    "updatedAt": "2026-05-01T00:00:00Z"
+  },
+  {
+    "id": "b1000000-0000-4000-8000-000000000003",
+    "slot": "home_carousel",
+    "title": "Training layers",
+    "body": "Lightweight jackets and pants for travel days and early kickoffs.",
+    "imageUrl": "https://placehold.co/1200x400/004D98/ffffff/png?text=Training+layers",
+    "linkUrl": "/categories/c1000000-0000-4000-8000-000000000002",
+    "sortOrder": 1,
+    "isActive": true,
+    "startsAt": "",
+    "endsAt": "",
+    "createdAt": "2026-05-01T00:00:00Z",
+    "updatedAt": "2026-05-01T00:00:00Z"
+  }
+]

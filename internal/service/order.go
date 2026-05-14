@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -43,29 +44,31 @@ type PayInput struct {
 	Stub                  bool   `json:"stub"`
 }
 
-func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order, error) {
+// CouponValidateResult is a checkout-friendly coupon check (no order created).
+type CouponValidateResult struct {
+	Valid          bool    `json:"valid"`
+	Code           string  `json:"code,omitempty"`
+	Message        string  `json:"message"`
+	DiscountType   string  `json:"discountType,omitempty"`
+	DiscountAmount float64 `json:"discountAmount"`
+	Subtotal       float64 `json:"subtotal"`
+}
+
+func (o *OrderService) buildOrderItemsFromCart(userID string) ([]models.OrderItem, float64, float64, error) {
 	cart, err := o.Cart.GetCart(userID)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
-	if len(cart.Items) == 0 {
-		return nil, ErrValidation
-	}
-	if strings.TrimSpace(in.ShippingAddress.FullName) == "" ||
-		strings.TrimSpace(in.ShippingAddress.AddressLine) == "" {
-		return nil, ErrValidation
-	}
-
 	var items []models.OrderItem
 	var subtotal float64
 	var totalWeight float64
 	for _, line := range cart.Items {
 		p, err := o.Store.FindProductByID(line.ProductID)
 		if err != nil {
-			return nil, err
+			return nil, 0, 0, err
 		}
 		if p == nil || !p.IsActive {
-			return nil, ErrValidation
+			return nil, 0, 0, ErrValidation
 		}
 		var v *models.ProductVariant
 		for i := range p.Variants {
@@ -75,10 +78,10 @@ func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order,
 			}
 		}
 		if v == nil {
-			return nil, ErrValidation
+			return nil, 0, 0, ErrValidation
 		}
 		if v.Stock < line.Quantity {
-			return nil, ErrInsufficientStock
+			return nil, 0, 0, ErrInsufficientStock
 		}
 		price := v.Price
 		items = append(items, models.OrderItem{
@@ -98,6 +101,71 @@ func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order,
 			}
 		}
 		totalWeight += w * float64(line.Quantity)
+	}
+	return items, subtotal, totalWeight, nil
+}
+
+// ValidateCouponForCart checks a promo code against the current cart (same rules as checkout).
+func (o *OrderService) ValidateCouponForCart(userID, code string) (*CouponValidateResult, error) {
+	code = strings.TrimSpace(strings.ToUpper(code))
+	if code == "" {
+		return &CouponValidateResult{Valid: false, Message: "code required"}, nil
+	}
+	items, subtotal, _, err := o.buildOrderItemsFromCart(userID)
+	if err != nil {
+		if errors.Is(err, ErrInsufficientStock) {
+			return &CouponValidateResult{Valid: false, Code: code, Message: "insufficient stock for cart", Subtotal: subtotal}, nil
+		}
+		if errors.Is(err, ErrValidation) {
+			return &CouponValidateResult{Valid: false, Code: code, Message: "cart has invalid or inactive items", Subtotal: subtotal}, nil
+		}
+		return nil, err
+	}
+	if len(items) == 0 {
+		return &CouponValidateResult{Valid: false, Code: code, Message: "cart is empty", Subtotal: 0}, nil
+	}
+	d, err := o.Store.FindDiscountByCode(code)
+	if err != nil {
+		return nil, err
+	}
+	if d == nil {
+		return &CouponValidateResult{Valid: false, Code: code, Message: "unknown code", Subtotal: subtotal}, nil
+	}
+	amt, err := ComputeDiscountAmount(o.Store, d, subtotal, items, time.Now().UTC())
+	if err != nil {
+		msg := "not applicable"
+		switch {
+		case errors.Is(err, ErrInactive):
+			msg = "inactive or expired"
+		case errors.Is(err, ErrValidation):
+			msg = "minimum not met or invalid for cart"
+		default:
+			msg = "not applicable"
+		}
+		return &CouponValidateResult{Valid: false, Code: code, Message: msg, DiscountType: d.Type, Subtotal: subtotal}, nil
+	}
+	return &CouponValidateResult{
+		Valid:          true,
+		Code:           code,
+		Message:        "ok",
+		DiscountType:   d.Type,
+		DiscountAmount: amt,
+		Subtotal:       subtotal,
+	}, nil
+}
+
+func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order, error) {
+	if strings.TrimSpace(in.ShippingAddress.FullName) == "" ||
+		strings.TrimSpace(in.ShippingAddress.AddressLine) == "" {
+		return nil, ErrValidation
+	}
+
+	items, subtotal, totalWeight, err := o.buildOrderItemsFromCart(userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(items) == 0 {
+		return nil, ErrValidation
 	}
 
 	now := time.Now().UTC()
@@ -267,6 +335,8 @@ func (o *OrderService) CancelByCustomer(userID, orderID string) (*models.Order, 
 	}
 	ord.Status = "cancelled"
 	ord.PaymentStatus = "failed"
+	now := time.Now().UTC().Format(time.RFC3339)
+	ord.CancelledAt = now
 	o.touchOrder(ord)
 	if err := o.Store.UpsertOrder(*ord); err != nil {
 		_ = adjustVariantStock(o.Store, ord.Items, -1)
@@ -294,6 +364,8 @@ func (o *OrderService) AdminCancel(orderID string) (*models.Order, error) {
 	} else {
 		ord.PaymentStatus = "failed"
 	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	ord.CancelledAt = now
 	o.touchOrder(ord)
 	if err := o.Store.UpsertOrder(*ord); err != nil {
 		_ = adjustVariantStock(o.Store, ord.Items, -1)
@@ -314,6 +386,8 @@ func (o *OrderService) AdminFulfill(orderID string) (*models.Order, error) {
 		return nil, ErrBadState
 	}
 	ord.Status = "fulfilled"
+	now := time.Now().UTC().Format(time.RFC3339)
+	ord.FulfilledAt = now
 	o.touchOrder(ord)
 	if err := o.Store.UpsertOrder(*ord); err != nil {
 		return nil, err
@@ -334,6 +408,8 @@ func (o *OrderService) AdminShip(orderID string) (*models.Order, error) {
 		return nil, ErrBadState
 	}
 	ord.Status = "shipped"
+	now := time.Now().UTC().Format(time.RFC3339)
+	ord.ShippedAt = now
 	o.touchOrder(ord)
 	if err := o.Store.UpsertOrder(*ord); err != nil {
 		return nil, err
@@ -403,6 +479,7 @@ func (o *OrderService) Pay(userID, orderID string, in PayInput) (*models.Order, 
 	}
 	ord.Status = "paid"
 	ord.PaymentStatus = "paid"
+	ord.PaidAt = now
 	o.touchOrder(ord)
 	if err := o.Store.UpsertOrder(*ord); err != nil {
 		return nil, nil, err

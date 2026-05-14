@@ -1,0 +1,20 @@
+[
+  {
+    "id": "pay-00001-0000-4000-8000-000000000001",
+    "orderId": "o1000000-0000-4000-8000-000000000001",
+    "provider": "stub",
+    "providerReference": "seed-pay-001",
+    "amount": 109.97,
+    "status": "paid",
+    "createdAt": "2026-05-08T14:05:00Z"
+  },
+  {
+    "id": "pay-00001-0000-4000-8000-000000000002",
+    "orderId": "o1000000-0000-4000-8000-000000000003",
+    "provider": "stub",
+    "providerReference": "seed-pay-002",
+    "amount": 51.0,
+    "status": "paid",
+    "createdAt": "2026-05-12T11:02:00Z"
+  }
+]

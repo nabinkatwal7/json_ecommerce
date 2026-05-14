@@ -1,0 +1,47 @@
+[
+  {
+    "id": "u1000000-0000-4000-8000-000000000001",
+    "name": "Test Customer",
+    "email": "customer@example.com",
+    "passwordHash": "$2a$10$2DnN.XYwo7F.NsvtZdkNqOyVpL4m5vxAo/LKdtb/EkbVJwb/.8vnS",
+    "role": "customer",
+    "addresses": [
+      {
+        "id": "addr-0001-0000-4000-8000-000000000001",
+        "fullName": "Test Customer",
+        "phone": "+15551234567",
+        "country": "US",
+        "state": "CA",
+        "city": "San Francisco",
+        "postalCode": "94102",
+        "addressLine": "100 Market Street",
+        "isDefault": true
+      }
+    ],
+    "segments": [
+      "returning"
+    ],
+    "createdAt": "2026-01-10T12:00:00Z"
+  },
+  {
+    "id": "u1000000-0000-4000-8000-000000000002",
+    "name": "Test Admin",
+    "email": "admin@example.com",
+    "passwordHash": "$2a$10$Mz5Yf14ulLyAp2.9eOHO9OWErUpRq73dvcrn2XcEw/0WYeoXViwLG",
+    "role": "admin",
+    "addresses": [],
+    "createdAt": "2026-01-05T12:00:00Z"
+  },
+  {
+    "id": "2aba8759-6195-4e08-b14f-3cd4f6070261",
+    "name": "Zachery Martin",
+    "email": "petergriffin@yopmail.com",
+    "passwordHash": "$2a$12$pbk/lpGp.1QeVndIqHBcu.3eR6UAVBjOg6Ov6d1Oa1NAUSifLUaq.",
+    "role": "customer",
+    "addresses": [],
+    "segments": [
+      "first_time_buyer"
+    ],
+    "createdAt": "2026-05-14T10:47:07Z"
+  }
+]

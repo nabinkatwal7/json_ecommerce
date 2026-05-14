@@ -77,3 +77,40 @@ func (r *Router) deleteCartItem(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, cart)
 }
+
+func (r *Router) getCartValidate(c *gin.Context) {
+	uid, ok := userID(c)
+	if !ok {
+		abortAPI(c, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	res, err := r.Cart.ValidateCart(uid)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+type couponValidateBody struct {
+	Code string `json:"code"`
+}
+
+func (r *Router) postCouponValidate(c *gin.Context) {
+	uid, ok := userID(c)
+	if !ok {
+		abortAPI(c, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	var body couponValidateBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		abortAPI(c, http.StatusBadRequest, "invalid json")
+		return
+	}
+	res, err := r.Orders.ValidateCouponForCart(uid, body.Code)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}

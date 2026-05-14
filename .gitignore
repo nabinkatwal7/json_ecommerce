@@ -24,8 +24,12 @@ profile.cov
 go.work
 go.work.sum
 
-# env file
+# env files (allow committed defaults for the web app)
 .env
+!web/.env
+
+# Node
+node_modules/
 
 # Editor/IDE
 # .idea/

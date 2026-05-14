@@ -1,0 +1,17 @@
+[
+  {
+    "userId": "u1000000-0000-4000-8000-000000000001",
+    "items": [
+      {
+        "productId": "p1000000-0000-4000-8000-000000000003",
+        "variantId": "v1000000-0000-4000-8000-000000000032",
+        "sku": "FCB-CAP-BLK",
+        "name": "Blaugrana snapback cap",
+        "price": 28.0,
+        "image": "https://placehold.co/600x600/111111/FFD700/png?text=Snapback",
+        "createdAt": "2026-05-11T12:30:00Z"
+      }
+    ],
+    "updatedAt": "2026-05-11T12:30:00Z"
+  }
+]

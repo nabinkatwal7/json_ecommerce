@@ -31,3 +31,4 @@ func (s *Store) passwordResetsFile() string {
 func (s *Store) rmasFile() string            { return s.path("rmas.json") }
 func (s *Store) wishlistsFile() string       { return s.path("wishlists.json") }
 func (s *Store) saveLaterFile() string       { return s.path("save_later.json") }
+func (s *Store) bannersFile() string         { return s.path("banners.json") }

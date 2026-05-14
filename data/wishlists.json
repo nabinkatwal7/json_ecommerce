@@ -1,0 +1,17 @@
+[
+  {
+    "userId": "u1000000-0000-4000-8000-000000000001",
+    "items": [
+      {
+        "productId": "p1000000-0000-4000-8000-000000000002",
+        "variantId": "v1000000-0000-4000-8000-000000000022",
+        "sku": "FCB-TRAIN-L",
+        "name": "Training travel jacket",
+        "price": 59.99,
+        "image": "https://placehold.co/600x600/004D98/ffffff/png?text=Travel+jacket",
+        "createdAt": "2026-05-11T12:00:00Z"
+      }
+    ],
+    "updatedAt": "2026-05-11T12:00:00Z"
+  }
+]

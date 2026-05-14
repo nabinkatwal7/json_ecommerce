@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"time"
 
 	"go-ecommerce-json/internal/models"
@@ -204,4 +205,90 @@ func (c *CartService) ClearCartByUser(userID string) error {
 		return nil
 	}
 	return c.ClearCart(cart.ID)
+}
+
+// CartLineStatus is one cart line compared to live catalog (stock + price).
+type CartLineStatus struct {
+	ItemID           string   `json:"itemId"`
+	ProductID        string   `json:"productId"`
+	VariantID        string   `json:"variantId"`
+	Name             string   `json:"name"`
+	SKU              string   `json:"sku"`
+	CartPrice        float64  `json:"cartPrice"`
+	CurrentPrice     float64  `json:"currentPrice"`
+	Quantity         int      `json:"quantity"`
+	AvailableStock   int      `json:"availableStock"`
+	Issues           []string `json:"issues"`
+	OK               bool     `json:"ok"`
+}
+
+type CartValidationResult struct {
+	OK    bool             `json:"ok"`
+	Lines []CartLineStatus `json:"lines"`
+}
+
+// ValidateCart checks each line against current catalog (active, variant, stock, price drift).
+func (c *CartService) ValidateCart(userID string) (*CartValidationResult, error) {
+	cart, err := c.getOrCreateCart(userID)
+	if err != nil {
+		return nil, err
+	}
+	out := CartValidationResult{OK: true, Lines: nil}
+	for _, line := range cart.Items {
+		st := CartLineStatus{
+			ItemID:         line.ID,
+			ProductID:    line.ProductID,
+			VariantID:    line.VariantID,
+			Name:         line.Name,
+			SKU:          line.SKU,
+			CartPrice:    line.Price,
+			Quantity:     line.Quantity,
+			CurrentPrice: line.Price,
+			AvailableStock: 0,
+			Issues:       nil,
+		}
+		p, err := c.Store.FindProductByID(line.ProductID)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil || !p.IsActive {
+			st.Issues = append(st.Issues, "inactive_or_missing")
+			st.OK = false
+			out.OK = false
+			out.Lines = append(out.Lines, st)
+			continue
+		}
+		var v *models.ProductVariant
+		for i := range p.Variants {
+			if p.Variants[i].ID == line.VariantID {
+				v = &p.Variants[i]
+				break
+			}
+		}
+		if v == nil {
+			st.Issues = append(st.Issues, "missing_variant")
+			st.OK = false
+			out.OK = false
+			out.Lines = append(out.Lines, st)
+			continue
+		}
+		st.Name = p.Name
+		st.SKU = v.SKU
+		st.CurrentPrice = v.Price
+		st.AvailableStock = v.Stock
+		if v.Stock < line.Quantity {
+			st.Issues = append(st.Issues, "out_of_stock")
+		}
+		if strings.TrimSpace(v.ID) != "" && v.Price != line.Price {
+			st.Issues = append(st.Issues, "price_changed")
+		}
+		if len(st.Issues) > 0 {
+			st.OK = false
+			out.OK = false
+		} else {
+			st.OK = true
+		}
+		out.Lines = append(out.Lines, st)
+	}
+	return &out, nil
 }

@@ -26,6 +26,8 @@ type Router struct {
 	Store     *repository.Store
 	Users     *service.UserService
 	Catalog   *service.CatalogService
+	Discovery *service.DiscoveryService
+	Banners   *service.BannerService
 	Cart      *service.CartService
 	Orders    *service.OrderService
 	Promo     *service.PromoService
@@ -69,6 +71,8 @@ func NewRouter(cfg config.Config) *Router {
 		Cache:    catCache,
 		CacheTTL: 30 * time.Second,
 	}
+	disc := &service.DiscoveryService{Store: st}
+	banners := &service.BannerService{Store: st}
 	cart := &service.CartService{Store: st}
 	orders := &service.OrderService{
 		Store:               st,
@@ -112,6 +116,8 @@ func NewRouter(cfg config.Config) *Router {
 		Store:      st,
 		Users:      us,
 		Catalog:    cs,
+		Discovery:  disc,
+		Banners:    banners,
 		Cart:       cart,
 		Orders:     orders,
 		Promo:      promo,
@@ -136,19 +142,26 @@ func (r *Router) Mount(engine *gin.Engine) {
 	engine.POST("/forgot-password", r.loginLim.middleware(), r.postForgotPassword)
 	engine.POST("/reset-password", r.loginLim.middleware(), r.postResetPassword)
 
+	engine.GET("/collections/featured", r.getFeaturedCollections)
+	engine.GET("/discovery/storefront", r.getStorefrontFeed)
+	engine.GET("/banners", r.getBanners)
+
 	engine.GET("/products", r.getProducts)
-	engine.GET("/products/:id", r.getProduct)
 	engine.GET("/products/slug/:slug", r.getProductBySlug)
+	engine.GET("/products/:id/related", r.getProductRelated)
+	engine.GET("/products/:id", r.getProduct)
 	engine.GET("/categories", r.getCategories)
 	engine.GET("/categories/:id", r.getCategory)
 	engine.GET("/tags", r.getTags)
 	engine.GET("/search", r.getSearch)
+	engine.GET("/search/suggest", r.getSearchSuggest)
 
 	engine.POST("/internal/cron/abandoned-carts", r.loginLim.middleware(), r.postAbandonedCartCron)
 
 	authz := engine.Group("/")
 	authz.Use(r.authMiddleware())
 	authz.GET("/me", r.getMe)
+	authz.PATCH("/me", r.patchMe)
 	authz.GET("/me/insights", r.getMeInsights)
 
 	authz.GET("/me/addresses", r.getAddresses)
@@ -157,6 +170,8 @@ func (r *Router) Mount(engine *gin.Engine) {
 	authz.DELETE("/me/addresses/:id", r.deleteAddress)
 
 	authz.POST("/shipping/quote", r.postShippingQuote)
+
+	authz.POST("/coupons/validate", r.postCouponValidate)
 
 	authz.GET("/wishlist", r.getWishlist)
 	authz.POST("/wishlist/items", r.postWishlistItem)
@@ -169,6 +184,7 @@ func (r *Router) Mount(engine *gin.Engine) {
 	authz.POST("/save-later/move-to-wishlist", r.postSaveLaterMoveWish)
 
 	authz.GET("/cart", r.getCart)
+	authz.GET("/cart/validate", r.getCartValidate)
 	authz.POST("/cart/items", r.postCartItem)
 	authz.PATCH("/cart/items/:itemId", r.patchCartItem)
 	authz.DELETE("/cart/items/:itemId", r.deleteCartItem)
@@ -187,6 +203,8 @@ func (r *Router) Mount(engine *gin.Engine) {
 
 	admin := engine.Group("/admin")
 	admin.Use(r.authMiddleware(), r.adminMiddleware())
+	admin.GET("/dashboard/stats", r.adminDashboardStats)
+
 	admin.GET("/products", r.adminListProducts)
 	admin.POST("/products", r.adminPostProduct)
 	admin.PUT("/products/:id", r.adminPutProduct)
@@ -198,12 +216,18 @@ func (r *Router) Mount(engine *gin.Engine) {
 
 	admin.POST("/discounts", r.adminPostDiscount)
 
+	admin.GET("/banners", r.adminListBanners)
+	admin.POST("/banners", r.adminPostBanner)
+	admin.PUT("/banners/:id", r.adminPutBanner)
+	admin.DELETE("/banners/:id", r.adminDeleteBanner)
+
 	admin.GET("/tags", r.adminListTags)
 	admin.POST("/tags", r.adminPostTag)
 	admin.PUT("/tags/:id", r.adminPutTag)
 	admin.DELETE("/tags/:id", r.adminDeleteTag)
 
 	admin.GET("/orders", r.adminListOrders)
+	admin.GET("/orders/:id/timeline", r.adminOrderTimeline)
 	admin.POST("/orders/:id/cancel", r.adminCancelOrder)
 	admin.POST("/orders/:id/fulfill", r.adminFulfillOrder)
 	admin.POST("/orders/:id/ship", r.adminShipOrder)

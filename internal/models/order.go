@@ -24,4 +24,9 @@ type Order struct {
 	InvoiceNumber   string      `json:"invoiceNumber,omitempty"`
 	CreatedAt       string      `json:"createdAt"`
 	UpdatedAt       string      `json:"updatedAt"`
+	// Lifecycle timestamps for admin timeline / analytics (set on transitions; optional on legacy rows).
+	PaidAt       string `json:"paidAt,omitempty"`
+	FulfilledAt  string `json:"fulfilledAt,omitempty"`
+	ShippedAt    string `json:"shippedAt,omitempty"`
+	CancelledAt  string `json:"cancelledAt,omitempty"`
 }

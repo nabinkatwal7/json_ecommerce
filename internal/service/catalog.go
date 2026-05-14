@@ -18,8 +18,8 @@ type CatalogService struct {
 	CacheTTL time.Duration
 }
 
-func (c *CatalogService) cacheKeyProducts(categoryID string) string {
-	return fmt.Sprintf("catalog:products:active:%s", categoryID)
+func (c *CatalogService) cacheKeyProducts(categoryID, tagID string) string {
+	return fmt.Sprintf("catalog:products:active:%s:%s", categoryID, tagID)
 }
 
 func (c *CatalogService) catalogTTL() time.Duration {
@@ -35,10 +35,11 @@ func (c *CatalogService) bustCatalogCache() {
 	}
 }
 
-func (c *CatalogService) ListActiveProducts(categoryID string) ([]models.Product, error) {
+func (c *CatalogService) ListActiveProducts(categoryID, tagID string) ([]models.Product, error) {
+	tagID = strings.TrimSpace(tagID)
 	if c.Cache != nil {
 		var cached []models.Product
-		if c.Cache.GetJSON(c.cacheKeyProducts(categoryID), &cached) {
+		if c.Cache.GetJSON(c.cacheKeyProducts(categoryID, tagID), &cached) {
 			return cached, nil
 		}
 	}
@@ -54,12 +55,28 @@ func (c *CatalogService) ListActiveProducts(categoryID string) ([]models.Product
 		if categoryID != "" && p.CategoryID != categoryID {
 			continue
 		}
+		if tagID != "" && !productHasTagID(p, tagID) {
+			continue
+		}
 		out = append(out, p)
 	}
 	if c.Cache != nil {
-		c.Cache.SetJSON(c.cacheKeyProducts(categoryID), out, c.catalogTTL())
+		c.Cache.SetJSON(c.cacheKeyProducts(categoryID, tagID), out, c.catalogTTL())
 	}
 	return out, nil
+}
+
+func productHasTagID(p models.Product, tagID string) bool {
+	tagID = strings.TrimSpace(tagID)
+	if tagID == "" {
+		return true
+	}
+	for _, id := range p.TagIDs {
+		if strings.TrimSpace(id) == tagID {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *CatalogService) GetProduct(id string) (*models.Product, error) {

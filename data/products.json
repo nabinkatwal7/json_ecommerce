@@ -1,0 +1,194 @@
+[
+  {
+    "id": "p1000000-0000-4000-8000-000000000001",
+    "name": "Home replica shirt",
+    "slug": "home-replica-shirt",
+    "description": "Blaugrana stripes, breathable matchweight fabric, and woven crest patch. Unisex fit.",
+    "image": "https://placehold.co/600x600/A50044/ffffff/png?text=Home+shirt",
+    "categoryId": "c1000000-0000-4000-8000-000000000001",
+    "tags": [
+      "new",
+      "matchday"
+    ],
+    "tagIds": [
+      "t1000000-0000-4000-8000-000000000001",
+      "t1000000-0000-4000-8000-000000000003"
+    ],
+    "variants": [
+      {
+        "id": "v1000000-0000-4000-8000-000000000011",
+        "sku": "FCB-HOME-S",
+        "size": "S",
+        "color": "Blaugrana",
+        "price": 24.99,
+        "stock": 3,
+        "weightKg": 0.2
+      },
+      {
+        "id": "v1000000-0000-4000-8000-000000000012",
+        "sku": "FCB-HOME-M",
+        "size": "M",
+        "color": "Blaugrana",
+        "price": 24.99,
+        "stock": 53,
+        "weightKg": 0.22
+      },
+      {
+        "id": "v1000000-0000-4000-8000-000000000013",
+        "sku": "FCB-HOME-L",
+        "size": "L",
+        "color": "Blaugrana",
+        "price": 24.99,
+        "stock": 30,
+        "weightKg": 0.24
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-05-01T10:00:00Z",
+    "updatedAt": "2026-05-10T10:00:00Z"
+  },
+  {
+    "id": "p1000000-0000-4000-8000-000000000002",
+    "name": "Training travel jacket",
+    "slug": "training-travel-jacket",
+    "description": "Packable hood, zip pockets, and a clean silhouette for travel days and warm-ups.",
+    "image": "https://placehold.co/600x600/004D98/ffffff/png?text=Travel+jacket",
+    "categoryId": "c1000000-0000-4000-8000-000000000002",
+    "tags": [
+      "sale",
+      "matchday"
+    ],
+    "tagIds": [
+      "t1000000-0000-4000-8000-000000000002",
+      "t1000000-0000-4000-8000-000000000003"
+    ],
+    "variants": [
+      {
+        "id": "v1000000-0000-4000-8000-000000000021",
+        "sku": "FCB-TRAIN-M",
+        "size": "M",
+        "color": "Deep navy",
+        "price": 59.99,
+        "stock": 16,
+        "weightKg": 0.65
+      },
+      {
+        "id": "v1000000-0000-4000-8000-000000000022",
+        "sku": "FCB-TRAIN-L",
+        "size": "L",
+        "color": "Deep navy",
+        "price": 59.99,
+        "stock": 22,
+        "weightKg": 0.7
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-05-03T10:00:00Z",
+    "updatedAt": "2026-05-10T10:00:00Z"
+  },
+  {
+    "id": "p1000000-0000-4000-8000-000000000003",
+    "name": "Blaugrana snapback cap",
+    "slug": "blaugrana-snapback-cap",
+    "description": "Structured crown, contrast undervisor, and adjustable snap closure.",
+    "image": "https://placehold.co/600x600/111111/FFD700/png?text=Snapback",
+    "categoryId": "c1000000-0000-4000-8000-000000000002",
+    "tags": [
+      "new",
+      "headwear"
+    ],
+    "tagIds": [
+      "t1000000-0000-4000-8000-000000000001"
+    ],
+    "variants": [
+      {
+        "id": "v1000000-0000-4000-8000-000000000031",
+        "sku": "FCB-CAP-NAVY",
+        "size": "One size",
+        "color": "Navy",
+        "price": 28,
+        "stock": 59,
+        "weightKg": 0.12
+      },
+      {
+        "id": "v1000000-0000-4000-8000-000000000032",
+        "sku": "FCB-CAP-BLK",
+        "size": "One size",
+        "color": "Black",
+        "price": 28,
+        "stock": 45,
+        "weightKg": 0.12
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-05-08T10:00:00Z",
+    "updatedAt": "2026-05-10T10:00:00Z"
+  },
+  {
+    "id": "p1000000-0000-4000-8000-000000000004",
+    "name": "Camp Nou souvenir mug",
+    "slug": "camp-nou-souvenir-mug",
+    "description": "12oz ceramic mug with stadium skyline graphic. Microwave safe.",
+    "image": "https://placehold.co/600x600/004D98/FFD700/png?text=Camp+Nou+mug",
+    "categoryId": "c1000000-0000-4000-8000-000000000003",
+    "tags": [
+      "gift",
+      "matchday"
+    ],
+    "tagIds": [
+      "t1000000-0000-4000-8000-000000000003"
+    ],
+    "variants": [
+      {
+        "id": "v1000000-0000-4000-8000-000000000041",
+        "sku": "FCB-MUG-12",
+        "size": "12oz",
+        "color": "Cream",
+        "price": 16.5,
+        "stock": 80,
+        "weightKg": 0.35
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-05-09T10:00:00Z",
+    "updatedAt": "2026-05-10T10:00:00Z"
+  },
+  {
+    "id": "p1000000-0000-4000-8000-000000000005",
+    "name": "Matchday crew socks (3-pack)",
+    "slug": "matchday-crew-socks-3-pack",
+    "description": "Cushioned sole, arch support, and moisture-wicking yarn — three pairs per pack.",
+    "image": "https://placehold.co/600x600/A50044/004D98/png?text=Socks+3-pack",
+    "categoryId": "c1000000-0000-4000-8000-000000000001",
+    "tags": [
+      "socks",
+      "sale"
+    ],
+    "tagIds": [
+      "t1000000-0000-4000-8000-000000000002"
+    ],
+    "variants": [
+      {
+        "id": "v1000000-0000-4000-8000-000000000051",
+        "sku": "FCB-SOCK-SM",
+        "size": "S/M",
+        "color": "White / garnet trim",
+        "price": 14,
+        "stock": 96,
+        "weightKg": 0.08
+      },
+      {
+        "id": "v1000000-0000-4000-8000-000000000052",
+        "sku": "FCB-SOCK-ML",
+        "size": "M/L",
+        "color": "White / garnet trim",
+        "price": 14,
+        "stock": 100,
+        "weightKg": 0.09
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-05-10T08:00:00Z",
+    "updatedAt": "2026-05-10T10:00:00Z"
+  }
+]
