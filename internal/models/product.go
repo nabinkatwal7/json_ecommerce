@@ -16,7 +16,8 @@ type Product struct {
 	Description string           `json:"description"`
 	Image       string           `json:"image"`
 	CategoryID  string           `json:"categoryId"`
-	Tags        []string         `json:"tags"`
+	Tags        []string         `json:"tags"`   // legacy display tags
+	TagIDs      []string         `json:"tagIds"` // PIM: references Tag.id
 	Variants    []ProductVariant `json:"variants"`
 	IsActive    bool             `json:"isActive"`
 	CreatedAt   string           `json:"createdAt"`

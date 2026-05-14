@@ -24,3 +24,7 @@ func (s *Store) cartsFile() string        { return s.path("carts.json") }
 func (s *Store) ordersFile() string       { return s.path("orders.json") }
 func (s *Store) discountsFile() string  { return s.path("discounts.json") }
 func (s *Store) paymentsFile() string     { return s.path("payments.json") }
+func (s *Store) tagsFile() string         { return s.path("tags.json") }
+func (s *Store) passwordResetsFile() string {
+	return s.path("password_resets.json")
+}

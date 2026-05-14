@@ -11,4 +11,5 @@ var (
 	ErrInsufficientStock = errors.New("insufficient stock")
 	ErrInactive          = errors.New("resource inactive")
 	ErrBadState          = errors.New("invalid state for operation")
+	ErrPayment           = errors.New("payment verification failed")
 )

@@ -19,7 +19,15 @@ func main() {
 	engine := gin.Default()
 	api.NewRouter(cfg).Mount(engine)
 
-	log.Printf("listening on %s (data: %s)", cfg.Addr, cfg.DataDir)
+	if cfg.TLSCertFile != "" && cfg.TLSKeyFile != "" {
+		log.Printf("listening with TLS on %s (data: %s)", cfg.Addr, cfg.DataDir)
+		if err := engine.RunTLS(cfg.Addr, cfg.TLSCertFile, cfg.TLSKeyFile); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
+	log.Printf("listening on %s (data: %s) — set TLS_CERT_FILE and TLS_KEY_FILE for HTTPS", cfg.Addr, cfg.DataDir)
 	if err := engine.Run(cfg.Addr); err != nil {
 		log.Fatal(err)
 	}

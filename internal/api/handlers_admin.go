@@ -8,6 +8,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func (r *Router) adminListProducts(c *gin.Context) {
+	list, err := r.Catalog.AdminListProducts()
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, list)
+}
+
 func (r *Router) adminPostProduct(c *gin.Context) {
 	var body service.ProductInput
 	if err := c.ShouldBindJSON(&body); err != nil {
@@ -56,6 +65,28 @@ func (r *Router) adminPostCategory(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, cat)
+}
+
+func (r *Router) adminPutCategory(c *gin.Context) {
+	var body service.CategoryInput
+	if err := c.ShouldBindJSON(&body); err != nil {
+		abortAPI(c, http.StatusBadRequest, "invalid json")
+		return
+	}
+	cat, err := r.Catalog.AdminUpdateCategory(c.Param("id"), body)
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, cat)
+}
+
+func (r *Router) adminDeleteCategory(c *gin.Context) {
+	if err := r.Catalog.AdminDeleteCategory(c.Param("id")); err != nil {
+		respondErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (r *Router) adminPostDiscount(c *gin.Context) {

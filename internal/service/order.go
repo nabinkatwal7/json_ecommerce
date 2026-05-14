@@ -1,25 +1,42 @@
 package service
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
+	"go-ecommerce-json/internal/invoice"
+	"go-ecommerce-json/internal/mail"
 	"go-ecommerce-json/internal/models"
+	"go-ecommerce-json/internal/payment"
 	"go-ecommerce-json/internal/repository"
 
 	"github.com/google/uuid"
 )
 
 type OrderService struct {
-	Store      *repository.Store
-	Cart       *CartService
-	Shipping   float64
-	FreeShipAt float64
+	Store               *repository.Store
+	Cart                *CartService
+	Shipping            float64
+	FreeShipAt          float64
+	Mail                *mail.Sender
+	StripeSecret        string
+	StripeCurrency      string
+	DevPaymentStub      bool
+	AppPublicURL        string
+	LowStockThreshold   int
+	AdminAlertEmail     string
 }
 
 type CheckoutInput struct {
 	ShippingAddress models.Address `json:"shippingAddress"`
 	DiscountCode    string         `json:"discountCode"`
+}
+
+type PayInput struct {
+	// StripePaymentIntentID is created client-side with Stripe.js/Elements (card never hits this API).
+	StripePaymentIntentID string `json:"stripePaymentIntentId"`
+	Stub                  bool   `json:"stub"`
 }
 
 func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order, error) {
@@ -58,7 +75,6 @@ func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order,
 		if v.Stock < line.Quantity {
 			return nil, ErrInsufficientStock
 		}
-		// Price at checkout time from catalog (cart may be stale).
 		price := v.Price
 		items = append(items, models.OrderItem{
 			ProductID: p.ID,
@@ -99,6 +115,7 @@ func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order,
 	}
 	total := afterDiscount + shipping
 
+	ts := now.Format(time.RFC3339)
 	order := models.Order{
 		ID:              uuid.NewString(),
 		UserID:          userID,
@@ -110,12 +127,37 @@ func (o *OrderService) Checkout(userID string, in CheckoutInput) (*models.Order,
 		Total:           total,
 		Status:          "created",
 		PaymentStatus:   "pending",
-		CreatedAt:       now.Format(time.RFC3339),
+		CreatedAt:       ts,
+		UpdatedAt:       ts,
 	}
-	if err := o.Store.UpsertOrder(order); err != nil {
+
+	if err := adjustVariantStock(o.Store, items, -1); err != nil {
 		return nil, err
 	}
+	if err := o.Store.UpsertOrder(order); err != nil {
+		_ = adjustVariantStock(o.Store, items, +1)
+		return nil, err
+	}
+	_ = o.Cart.ClearCartByUser(userID)
+
+	o.maybeLowStockAlert()
 	return &order, nil
+}
+
+func (o *OrderService) maybeLowStockAlert() {
+	th := o.LowStockThreshold
+	if th <= 0 {
+		th = 5
+	}
+	if o.Mail == nil || !o.Mail.Configured() || strings.TrimSpace(o.AdminAlertEmail) == "" {
+		return
+	}
+	lines, err := LowStockReport(o.Store, th)
+	if err != nil || len(lines) == 0 {
+		return
+	}
+	subj := fmt.Sprintf("Low stock alert (%d)", len(lines))
+	_ = o.Mail.SendPlain(o.AdminAlertEmail, subj, FormatLowStockEmail(lines))
 }
 
 func (o *OrderService) ListMyOrders(userID string) ([]models.Order, error) {
@@ -133,63 +175,197 @@ func (o *OrderService) GetOrder(userID, orderID string) (*models.Order, error) {
 	return ord, nil
 }
 
-// Pay simulates a successful payment: captures funds, decrements inventory, marks order paid, clears cart.
-func (o *OrderService) Pay(userID, orderID string) (*models.Order, *models.Payment, error) {
+func (o *OrderService) GetOrderAdmin(orderID string) (*models.Order, error) {
 	ord, err := o.Store.FindOrderByID(orderID)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	if ord == nil || ord.UserID != userID {
-		return nil, nil, ErrNotFound
+	if ord == nil {
+		return nil, ErrNotFound
+	}
+	return ord, nil
+}
+
+func (o *OrderService) ListOrdersAdmin() ([]models.Order, error) {
+	return o.Store.ListOrders()
+}
+
+func (o *OrderService) touchOrder(ord *models.Order) {
+	ord.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+}
+
+func (o *OrderService) ensureInvoiceNumber(ord *models.Order) error {
+	if ord.InvoiceNumber != "" {
+		return nil
+	}
+	ord.InvoiceNumber = fmt.Sprintf("INV-%s-%s", time.Now().UTC().Format("20060102"), ord.ID[:8])
+	o.touchOrder(ord)
+	return o.Store.UpsertOrder(*ord)
+}
+
+// InvoicePDF returns a PDF for the order owner. Assigns an invoice number on first generation.
+func (o *OrderService) InvoicePDF(userID, orderID string) ([]byte, error) {
+	ord, err := o.GetOrder(userID, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(ord.Status, "cancelled") {
+		return nil, ErrBadState
+	}
+	if err := o.ensureInvoiceNumber(ord); err != nil {
+		return nil, err
+	}
+	ord, err = o.GetOrder(userID, orderID)
+	if err != nil {
+		return nil, err
+	}
+	return invoice.BuildOrderPDF(ord)
+}
+
+// CancelByCustomer cancels a pending, unpaid order and restores inventory.
+func (o *OrderService) CancelByCustomer(userID, orderID string) (*models.Order, error) {
+	ord, err := o.GetOrder(userID, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(ord.Status, "cancelled") {
+		return nil, ErrBadState
+	}
+	if ord.Status != "created" || ord.PaymentStatus != "pending" {
+		return nil, ErrBadState
+	}
+	if err := adjustVariantStock(o.Store, ord.Items, +1); err != nil {
+		return nil, err
+	}
+	ord.Status = "cancelled"
+	ord.PaymentStatus = "failed"
+	o.touchOrder(ord)
+	if err := o.Store.UpsertOrder(*ord); err != nil {
+		_ = adjustVariantStock(o.Store, ord.Items, -1)
+		return nil, err
+	}
+	return ord, nil
+}
+
+// AdminCancel cancels an order (except already cancelled) and restores inventory once.
+func (o *OrderService) AdminCancel(orderID string) (*models.Order, error) {
+	ord, err := o.GetOrderAdmin(orderID)
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(ord.Status, "cancelled") {
+		return nil, ErrBadState
+	}
+	// Restore stock for any order that had checkout deduction (all non-cancelled prior states).
+	if err := adjustVariantStock(o.Store, ord.Items, +1); err != nil {
+		return nil, err
+	}
+	ord.Status = "cancelled"
+	if ord.PaymentStatus == "paid" {
+		ord.PaymentStatus = "refunded"
+	} else {
+		ord.PaymentStatus = "failed"
+	}
+	o.touchOrder(ord)
+	if err := o.Store.UpsertOrder(*ord); err != nil {
+		_ = adjustVariantStock(o.Store, ord.Items, -1)
+		return nil, err
+	}
+	return ord, nil
+}
+
+func (o *OrderService) AdminFulfill(orderID string) (*models.Order, error) {
+	ord, err := o.GetOrderAdmin(orderID)
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(ord.Status, "cancelled") {
+		return nil, ErrBadState
+	}
+	if ord.PaymentStatus != "paid" || ord.Status != "paid" {
+		return nil, ErrBadState
+	}
+	ord.Status = "fulfilled"
+	o.touchOrder(ord)
+	if err := o.Store.UpsertOrder(*ord); err != nil {
+		return nil, err
+	}
+	o.sendOrderEmail(ord, "Your order has been fulfilled", "We are preparing your shipment.\n\nOrder: "+ord.ID)
+	return ord, nil
+}
+
+func (o *OrderService) AdminShip(orderID string) (*models.Order, error) {
+	ord, err := o.GetOrderAdmin(orderID)
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(ord.Status, "cancelled") {
+		return nil, ErrBadState
+	}
+	if ord.Status != "fulfilled" {
+		return nil, ErrBadState
+	}
+	ord.Status = "shipped"
+	o.touchOrder(ord)
+	if err := o.Store.UpsertOrder(*ord); err != nil {
+		return nil, err
+	}
+	o.sendOrderEmail(ord, "Your order has shipped", "Your order is on the way.\n\nOrder: "+ord.ID)
+	return ord, nil
+}
+
+func (o *OrderService) sendOrderEmail(ord *models.Order, subject, body string) {
+	if o.Mail == nil || !o.Mail.Configured() {
+		return
+	}
+	u, err := o.Store.FindUserByID(ord.UserID)
+	if err != nil || u == nil {
+		return
+	}
+	_ = o.Mail.SendPlain(u.Email, subject, body)
+}
+
+// Pay confirms payment (Stripe PaymentIntent or dev stub). Inventory was already reduced at checkout.
+func (o *OrderService) Pay(userID, orderID string, in PayInput) (*models.Order, *models.Payment, error) {
+	ord, err := o.GetOrder(userID, orderID)
+	if err != nil {
+		return nil, nil, err
 	}
 	if ord.PaymentStatus != "pending" || ord.Status != "created" {
 		return nil, nil, ErrBadState
 	}
 
-	products, err := o.Store.ListProducts()
-	if err != nil {
-		return nil, nil, err
-	}
-	byID := make(map[string]int)
-	for i := range products {
-		byID[products[i].ID] = i
+	cur := strings.ToLower(strings.TrimSpace(o.StripeCurrency))
+	if cur == "" {
+		cur = "usd"
 	}
 
-	for _, line := range ord.Items {
-		idx, ok := byID[line.ProductID]
-		if !ok {
+	var providerRef string
+	var provider string
+
+	switch {
+	case strings.TrimSpace(o.StripeSecret) != "":
+		if strings.TrimSpace(in.StripePaymentIntentID) == "" {
 			return nil, nil, ErrValidation
 		}
-		p := &products[idx]
-		if !p.IsActive {
-			return nil, nil, ErrInactive
+		if err := payment.VerifySucceededPaymentIntent(o.StripeSecret, in.StripePaymentIntentID, ord.Total, cur); err != nil {
+			return nil, nil, ErrPayment
 		}
-		vidx := -1
-		for i := range p.Variants {
-			if p.Variants[i].ID == line.VariantID {
-				vidx = i
-				break
-			}
-		}
-		if vidx < 0 {
-			return nil, nil, ErrValidation
-		}
-		if p.Variants[vidx].Stock < line.Quantity {
-			return nil, nil, ErrInsufficientStock
-		}
-		p.Variants[vidx].Stock -= line.Quantity
-		p.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	}
-	if err := o.Store.SaveProducts(products); err != nil {
-		return nil, nil, err
+		provider = "stripe"
+		providerRef = in.StripePaymentIntentID
+	case o.DevPaymentStub && in.Stub:
+		provider = "stub"
+		providerRef = uuid.NewString()
+	default:
+		return nil, nil, ErrValidation
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	pay := models.Payment{
 		ID:                uuid.NewString(),
 		OrderID:           ord.ID,
-		Provider:          "stub",
-		ProviderReference: uuid.NewString(),
+		Provider:          provider,
+		ProviderReference: providerRef,
 		Amount:            ord.Total,
 		Status:            "paid",
 		CreatedAt:         now,
@@ -197,14 +373,32 @@ func (o *OrderService) Pay(userID, orderID string) (*models.Order, *models.Payme
 	if err := o.Store.UpsertPayment(pay); err != nil {
 		return nil, nil, err
 	}
-
 	ord.Status = "paid"
 	ord.PaymentStatus = "paid"
+	o.touchOrder(ord)
 	if err := o.Store.UpsertOrder(*ord); err != nil {
 		return nil, nil, err
 	}
-	if err := o.Cart.ClearCartByUser(userID); err != nil {
-		return nil, nil, err
-	}
+	body := fmt.Sprintf("Payment received for order %s.\nTotal: %.2f\nThank you.\n", ord.ID, ord.Total)
+	o.sendOrderEmail(ord, "Order paid — thank you", body)
 	return ord, &pay, nil
+}
+
+// CreateStripePaymentIntent creates a server-side PaymentIntent so the client never chooses the charge amount.
+func (o *OrderService) CreateStripePaymentIntent(userID, orderID string) (clientSecret, paymentIntentID string, err error) {
+	ord, err := o.GetOrder(userID, orderID)
+	if err != nil {
+		return "", "", err
+	}
+	if ord.PaymentStatus != "pending" || ord.Status != "created" {
+		return "", "", ErrBadState
+	}
+	if strings.TrimSpace(o.StripeSecret) == "" {
+		return "", "", ErrValidation
+	}
+	cur := strings.ToLower(strings.TrimSpace(o.StripeCurrency))
+	if cur == "" {
+		cur = "usd"
+	}
+	return payment.CreatePaymentIntent(o.StripeSecret, ord.Total, cur, ord.ID)
 }

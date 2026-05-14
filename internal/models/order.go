@@ -18,7 +18,9 @@ type Order struct {
 	Discount        float64     `json:"discount"`
 	Shipping        float64     `json:"shipping"`
 	Total           float64     `json:"total"`
-	Status          string      `json:"status"`        // created, paid, fulfilled, shipped, cancelled, refunded
+	Status          string      `json:"status"`        // created, paid, fulfilled, shipped, cancelled
 	PaymentStatus   string      `json:"paymentStatus"` // pending, paid, failed, refunded
+	InvoiceNumber   string      `json:"invoiceNumber,omitempty"`
 	CreatedAt       string      `json:"createdAt"`
+	UpdatedAt       string      `json:"updatedAt"`
 }

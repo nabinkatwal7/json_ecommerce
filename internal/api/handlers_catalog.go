@@ -42,3 +42,12 @@ func (r *Router) getCategories(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, list)
 }
+
+func (r *Router) getCategory(c *gin.Context) {
+	cat, err := r.Catalog.GetCategory(c.Param("id"))
+	if err != nil {
+		respondErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, cat)
+}

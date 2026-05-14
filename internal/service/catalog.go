@@ -68,17 +68,33 @@ func (c *CatalogService) ListActiveCategories() ([]models.Category, error) {
 	return out, nil
 }
 
+func (c *CatalogService) GetCategory(id string) (*models.Category, error) {
+	cat, err := c.Store.FindCategoryByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if cat == nil || !cat.IsActive {
+		return nil, ErrNotFound
+	}
+	return cat, nil
+}
+
+func (c *CatalogService) AdminListProducts() ([]models.Product, error) {
+	return c.Store.ListProducts()
+}
+
 // --- Admin ---
 
 type ProductInput struct {
-	Name        string                 `json:"name"`
-	Slug        string                 `json:"slug"`
-	Description string                 `json:"description"`
-	Image       string                 `json:"image"`
-	CategoryID  string                 `json:"categoryId"`
-	Tags        []string               `json:"tags"`
+	Name        string                  `json:"name"`
+	Slug        string                  `json:"slug"`
+	Description string                  `json:"description"`
+	Image       string                  `json:"image"`
+	CategoryID  string                  `json:"categoryId"`
+	Tags        []string                `json:"tags"`
+	TagIDs      []string                `json:"tagIds"`
 	Variants    []models.ProductVariant `json:"variants"`
-	IsActive    bool                   `json:"isActive"`
+	IsActive    bool                    `json:"isActive"`
 }
 
 func (c *CatalogService) AdminCreateProduct(in ProductInput) (*models.Product, error) {
@@ -91,6 +107,16 @@ func (c *CatalogService) AdminCreateProduct(in ProductInput) (*models.Product, e
 	if cat, _ := c.Store.FindCategoryByID(in.CategoryID); in.CategoryID != "" && cat == nil {
 		return nil, ErrValidation
 	}
+	variants, err := normalizeVariants(in.Variants)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.validateVariantSKUs("", variants); err != nil {
+		return nil, err
+	}
+	if err := c.validateTagIDs(in.TagIDs); err != nil {
+		return nil, err
+	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	p := models.Product{
 		ID:          uuid.NewString(),
@@ -100,7 +126,8 @@ func (c *CatalogService) AdminCreateProduct(in ProductInput) (*models.Product, e
 		Image:       in.Image,
 		CategoryID:  in.CategoryID,
 		Tags:        in.Tags,
-		Variants:    in.Variants,
+		TagIDs:      append([]string(nil), in.TagIDs...),
+		Variants:    variants,
 		IsActive:    in.IsActive,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -130,6 +157,16 @@ func (c *CatalogService) AdminUpdateProduct(id string, in ProductInput) (*models
 			return nil, ErrValidation
 		}
 	}
+	variants, err := normalizeVariants(in.Variants)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.validateVariantSKUs(p.ID, variants); err != nil {
+		return nil, err
+	}
+	if err := c.validateTagIDs(in.TagIDs); err != nil {
+		return nil, err
+	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	if strings.TrimSpace(in.Name) != "" {
 		p.Name = strings.TrimSpace(in.Name)
@@ -141,7 +178,8 @@ func (c *CatalogService) AdminUpdateProduct(id string, in ProductInput) (*models
 	p.Image = in.Image
 	p.CategoryID = in.CategoryID
 	p.Tags = in.Tags
-	p.Variants = in.Variants
+	p.TagIDs = append([]string(nil), in.TagIDs...)
+	p.Variants = variants
 	p.IsActive = in.IsActive
 	p.UpdatedAt = now
 	if err := c.Store.UpsertProduct(*p); err != nil {
@@ -191,4 +229,108 @@ func (c *CatalogService) AdminCreateCategory(in CategoryInput) (*models.Category
 		return nil, err
 	}
 	return &cat, nil
+}
+
+func (c *CatalogService) AdminUpdateCategory(id string, in CategoryInput) (*models.Category, error) {
+	cat, err := c.Store.FindCategoryByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if cat == nil {
+		return nil, ErrNotFound
+	}
+	slug := strings.TrimSpace(in.Slug)
+	if slug != "" && slug != cat.Slug {
+		cats, err := c.Store.ListCategories()
+		if err != nil {
+			return nil, err
+		}
+		for i := range cats {
+			if cats[i].ID != id && cats[i].Slug == slug {
+				return nil, ErrConflict
+			}
+		}
+	}
+	if strings.TrimSpace(in.Name) != "" {
+		cat.Name = strings.TrimSpace(in.Name)
+	}
+	if slug != "" {
+		cat.Slug = slug
+	}
+	cat.Description = in.Description
+	cat.IsActive = in.IsActive
+	if err := c.Store.UpsertCategory(*cat); err != nil {
+		return nil, err
+	}
+	return cat, nil
+}
+
+func (c *CatalogService) AdminDeleteCategory(id string) error {
+	if cat, _ := c.Store.FindCategoryByID(id); cat == nil {
+		return ErrNotFound
+	}
+	return c.Store.DeleteCategory(id)
+}
+
+func normalizeVariants(in []models.ProductVariant) ([]models.ProductVariant, error) {
+	if len(in) == 0 {
+		return nil, ErrValidation
+	}
+	out := make([]models.ProductVariant, len(in))
+	copy(out, in)
+	for i := range out {
+		if strings.TrimSpace(out[i].SKU) == "" {
+			return nil, ErrValidation
+		}
+		if strings.TrimSpace(out[i].ID) == "" {
+			out[i].ID = uuid.NewString()
+		}
+	}
+	seen := map[string]struct{}{}
+	for _, v := range out {
+		sku := strings.TrimSpace(v.SKU)
+		if _, ok := seen[sku]; ok {
+			return nil, ErrConflict
+		}
+		seen[sku] = struct{}{}
+	}
+	return out, nil
+}
+
+func (c *CatalogService) validateTagIDs(ids []string) error {
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return ErrValidation
+		}
+		t, err := c.Store.FindTagByID(id)
+		if err != nil {
+			return err
+		}
+		if t == nil {
+			return ErrValidation
+		}
+	}
+	return nil
+}
+
+func (c *CatalogService) validateVariantSKUs(excludeProductID string, variants []models.ProductVariant) error {
+	products, err := c.Store.ListProducts()
+	if err != nil {
+		return err
+	}
+	for _, nv := range variants {
+		ns := strings.TrimSpace(nv.SKU)
+		for _, p := range products {
+			if p.ID == excludeProductID {
+				continue
+			}
+			for _, v := range p.Variants {
+				if strings.TrimSpace(v.SKU) == ns {
+					return ErrConflict
+				}
+			}
+		}
+	}
+	return nil
 }
