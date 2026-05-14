@@ -17,7 +17,7 @@ type User struct {
 	Name         string    `json:"name"`
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"passwordHash"`
-	Role         string    `json:"role"` // admin, costumer
+	Role         string    `json:"role"` // admin, customer
 	Addresses    []Address `json:"addresses"`
 	CreatedAt    string    `json:"createdAt"`
 }

@@ -14,6 +14,7 @@ type Product struct {
 	Name        string           `json:"name"`
 	Slug        string           `json:"slug"`
 	Description string           `json:"description"`
+	Image       string           `json:"image"`
 	CategoryID  string           `json:"categoryId"`
 	Tags        []string         `json:"tags"`
 	Variants    []ProductVariant `json:"variants"`

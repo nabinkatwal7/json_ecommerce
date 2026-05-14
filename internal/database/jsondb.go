@@ -18,7 +18,8 @@ func EnsureFile(filePath string) error {
 	}
 
 	if _, err := os.Stat(filePath); errors.Is(err, os.ErrNotExist) {
-		return os.WriteFile(filePath, []byte("{}"), 0644)
+		// Collections are JSON arrays; "{}" would fail unmarshaling into []T.
+		return os.WriteFile(filePath, []byte("[]"), 0644)
 	}
 
 	return nil
